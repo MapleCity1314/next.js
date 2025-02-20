@@ -1,6 +1,6 @@
 use std::{
     collections::{BinaryHeap, VecDeque},
-    hash::Hash,
+    hash::{BuildHasher, Hash},
     ops::{Deref, DerefMut},
 };
 
@@ -8,7 +8,7 @@ use anyhow::{bail, Result};
 use either::Either;
 use indexmap::map::Entry;
 use roaring::RoaringBitmap;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use tracing::Instrument;
 use turbo_rcstr::RcStr;
@@ -198,6 +198,17 @@ impl ChunkGroupInfo {
                 }
             }
         }
+    }
+
+    pub async fn hash_chunk_groups(&self, chunk_groups: &RoaringBitmapWrapper) -> Result<u64> {
+        let mut entries = chunk_groups
+            .iter()
+            .flat_map(|idx| self.chunk_groups[idx as usize].entries())
+            .map(|m| m.ident().to_string())
+            .try_join()
+            .await?;
+        entries.sort();
+        Ok(FxBuildHasher.hash_one(entries))
     }
 }
 
