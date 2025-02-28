@@ -32,9 +32,8 @@ interface Options {
  *
  * */
 export function useDelayedRender(active = false, options: Options = {}) {
-  const [, force] = useState({})
-  const mounted = useRef(active)
-  const rendered = useRef(false)
+  const [mounted, setMounted] = useState(active)
+  const [rendered, setRendered] = useState(false)
   const renderTimer = useRef<NodeJS.Timeout | null>(null)
   const unmountTimer = useRef<NodeJS.Timeout | null>(null)
   const prevActive = useRef(active)
@@ -44,36 +43,34 @@ export function useDelayedRender(active = false, options: Options = {}) {
 
     if (prevActive.current) {
       // Mount immediately
-      mounted.current = true
+      setMounted(true)
       if (unmountTimer.current) clearTimeout(unmountTimer.current)
 
       if (enterDelay <= 0) {
         // Render immediately
-        rendered.current = true
+        setRendered(true)
       } else {
         if (renderTimer.current) return
 
         // Render after a delay
         renderTimer.current = setTimeout(() => {
-          rendered.current = true
+          setRendered(true)
           renderTimer.current = null
-          force({})
         }, enterDelay)
       }
     } else {
       // Immediately set to unrendered
-      rendered.current = false
+      setRendered(false)
 
       if (exitDelay <= 0) {
-        mounted.current = false
+        setMounted(false)
       } else {
         if (unmountTimer.current) return
 
         // Unmount after a delay
         unmountTimer.current = setTimeout(() => {
-          mounted.current = false
+          setMounted(false)
           unmountTimer.current = null
-          force({})
         }, exitDelay)
       }
     }
@@ -88,7 +85,7 @@ export function useDelayedRender(active = false, options: Options = {}) {
   }
 
   return {
-    mounted: mounted.current,
-    rendered: rendered.current,
+    mounted,
+    rendered,
   }
 }
