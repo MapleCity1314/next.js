@@ -34,28 +34,29 @@ interface Options {
 export function useDelayedRender(active = false, options: Options = {}) {
   const [mounted, setMounted] = useState(active)
   const [rendered, setRendered] = useState(false)
-  const renderTimer = useRef<NodeJS.Timeout | null>(null)
-  const unmountTimer = useRef<NodeJS.Timeout | null>(null)
-  const prevActive = useRef(active)
+
+  const renderTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const unmountTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const prevActiveRef = useRef(active)
 
   const recalculate = useCallback(() => {
     const { enterDelay = 1, exitDelay = 0 } = options
 
-    if (prevActive.current) {
+    if (prevActiveRef.current) {
       // Mount immediately
       setMounted(true)
-      if (unmountTimer.current) clearTimeout(unmountTimer.current)
+      if (unmountTimerRef.current) clearTimeout(unmountTimerRef.current)
 
       if (enterDelay <= 0) {
         // Render immediately
         setRendered(true)
       } else {
-        if (renderTimer.current) return
+        if (renderTimerRef.current) return
 
         // Render after a delay
-        renderTimer.current = setTimeout(() => {
+        renderTimerRef.current = setTimeout(() => {
           setRendered(true)
-          renderTimer.current = null
+          renderTimerRef.current = null
         }, enterDelay)
       }
     } else {
@@ -65,20 +66,20 @@ export function useDelayedRender(active = false, options: Options = {}) {
       if (exitDelay <= 0) {
         setMounted(false)
       } else {
-        if (unmountTimer.current) return
+        if (unmountTimerRef.current) return
 
         // Unmount after a delay
-        unmountTimer.current = setTimeout(() => {
+        unmountTimerRef.current = setTimeout(() => {
           setMounted(false)
-          unmountTimer.current = null
+          unmountTimerRef.current = null
         }, exitDelay)
       }
     }
   }, [options])
 
   // When the active prop changes, need to re-calculate
-  if (active !== prevActive.current) {
-    prevActive.current = active
+  if (active !== prevActiveRef.current) {
+    prevActiveRef.current = active
     // We want to do this synchronously with the render, not in an effect
     // this way when active → true, mounted → true in the same pass
     recalculate()
