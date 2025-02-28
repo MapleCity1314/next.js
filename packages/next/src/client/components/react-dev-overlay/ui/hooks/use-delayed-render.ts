@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback } from 'react'
 
 interface Options {
   enterDelay?: number
@@ -6,75 +6,68 @@ interface Options {
   onUnmount?: () => void
 }
 
-/**
- * Useful to perform CSS transitions on React components without
- * using libraries like Framer Motion. This hook will defer the
- * unmount of a React component until after a delay.
- *
- * @param active - Whether the component should be rendered
- * @param options - Options for the delayed render
- * @param options.enterDelay - Delay before rendering the component
- * @param options.exitDelay - Delay before unmounting the component
- *
- * const Modal = ({ active }) => {
- * const { mounted, rendered } = useDelayedRender(active, {
- *  exitDelay: 2000,
- * })
- *
- * if (!mounted) return null
- *
- * return (
- *   <Portal>
- *     <div className={rendered ? 'modal visible' : 'modal'}>...</div>
- *   </Portal>
- * )
- *}
- *
- * */
-export function useDelayedRender(active = false, options: Options = {}) {
-  const [mounted, setMounted] = useState(active)
-  const [rendered, setRendered] = useState(false)
-  const renderTimerRef = useRef<number | null>(null)
-  const unmountTimerRef = useRef<number | null>(null)
+/** Useful to perform CSS animations on React components */
+export function useDelayedRender(
+  active: boolean = false,
+  options: Options = {}
+) {
+  const [, force] = useState<any>()
+  const mounted = useRef(active)
+  const rendered = useRef(false)
+  const renderTimer = useRef<NodeJS.Timeout | null>(null)
+  const unmountTimer = useRef<NodeJS.Timeout | null>(null)
+  const prevActive = useRef(active)
 
-  const clearTimers = useCallback(() => {
-    if (renderTimerRef.current !== null) {
-      window.clearTimeout(renderTimerRef.current)
-      renderTimerRef.current = null
-    }
-    if (unmountTimerRef.current !== null) {
-      window.clearTimeout(unmountTimerRef.current)
-      unmountTimerRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
+  const recalculate = useCallback(() => {
     const { enterDelay = 1, exitDelay = 0 } = options
 
-    clearTimers()
+    if (prevActive.current) {
+      // Mount immediately
+      mounted.current = true
+      if (unmountTimer.current) clearTimeout(unmountTimer.current)
 
-    if (active) {
-      setMounted(true)
       if (enterDelay <= 0) {
-        setRendered(true)
+        // Render immediately
+        rendered.current = true
       } else {
-        renderTimerRef.current = window.setTimeout(() => {
-          setRendered(true)
+        if (renderTimer.current) return
+
+        // Render after a delay
+        renderTimer.current = setTimeout(() => {
+          rendered.current = true
+          renderTimer.current = null
+          force({})
         }, enterDelay)
       }
     } else {
-      setRendered(false)
+      // Immediately set to unrendered
+      rendered.current = false
+
       if (exitDelay <= 0) {
-        setMounted(false)
+        mounted.current = false
       } else {
-        unmountTimerRef.current = window.setTimeout(() => {
-          setMounted(false)
+        if (unmountTimer.current) return
+
+        // Unmount after a delay
+        unmountTimer.current = setTimeout(() => {
+          mounted.current = false
+          unmountTimer.current = null
+          force({})
         }, exitDelay)
       }
     }
+  }, [options])
 
-    return clearTimers
-  }, [active, options, clearTimers])
+  // When the active prop changes, need to re-calculate
+  if (active !== prevActive.current) {
+    prevActive.current = active
+    // We want to do this synchronously with the render, not in an effect
+    // this way when active → true, mounted → true in the same pass
+    recalculate()
+  }
 
-  return { mounted, rendered }
+  return {
+    mounted: mounted.current,
+    rendered: rendered.current,
+  }
 }
